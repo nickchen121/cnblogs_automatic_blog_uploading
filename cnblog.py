@@ -103,7 +103,7 @@ def get_cfg():
         server = xmlrpclib.ServerProxy(cfg["url"])
         mwb = server.metaWeblog
         # title2id[title]=postid  储存博客中文章标题对应的postid
-        print(cfg["blogid"], cfg["usr"], cfg["passwd"], recentnum)
+        print(cfg["blogid"], cfg["usr"], recentnum)
         recentPost = mwb.getRecentPosts(
             cfg["blogid"], cfg["usr"], cfg["passwd"], recentnum)
         for post in recentPost:
@@ -136,12 +136,13 @@ def newPost(blogid, usr, passwd, post, publish):
 
 def post_art(path, publish=True):
     title = os.path.basename(path)  # 获取文件名做博客文章标题
-    [title, fename] = os.path.splitext(title)  # 去除扩展名
+    [title, _] = os.path.splitext(title)  # 去除扩展名
     with open(mdfile, "r", encoding="utf-8") as f:
         post = dict(description=f.read(), title=title)
         post["categories"] = ["[Markdown]"]
-        # 不发布
-        if not publish:
+
+        # 判断是否发布
+        if not publish:  # 不发布
             # 对于已经发布的文章，直接修改为未发布会报错：
             # xmlrpc.client.Fault: <'published post can not be saved as draft'>
             # 所以先删除这个文章
@@ -154,19 +155,36 @@ def post_art(path, publish=True):
                 postid = newPost(blogid, usr, passwd, post, publish)
                 print("New:[title=%s][postid=%s][publish=%r]" %
                       (title, postid, publish))
-        # 发布
-        else:
+
+                filepath_ = os.path.join('./unpublished/', f'{title}.md')
+                os.remove(filepath_)
+
+                return (title, postid, publish)
+        else:  # 发布
             if title in title2id.keys():  # 博客里已经存在这篇文章
                 mwb.editPost(title2id[title], usr, passwd, post, publish)
                 print("Update:[title=%s][postid=%s][publish=%r]" %
                       (title, title2id[title], publish))
+
+                filepath_ = os.path.join('./articles/', f'{title}.md')
+                os.remove(filepath_)
+
+                return (title, title2id[title], publish)
+
             else:  # 博客里还不存在这篇文章
                 postid = newPost(blogid, usr, passwd, post, publish)
                 print("New:[title=%s][postid=%s][publish=%r]" %
                       (title, postid, publish))
 
+                filepath_ = os.path.join('./articles/', f'{title}.md')
+                os.remove(filepath_)
+
+                return (title, postid, publish)
+
 
 def download_art():
+    """下载文章"""
+    # 获取最近文章，并获取所有文章信息
     recentPost = mwb.getRecentPosts(blogid, usr, passwd, recentnum)
     for post in recentPost:
         if "categories" in post.keys():
@@ -181,16 +199,36 @@ def download_art():
 
 
 if __name__ == "__main__":
-    if not exist_cfg():
-        create_cfg()
-    get_cfg()
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "download":
-            download_art()
-        elif sys.argv[1] == "config":
+
+    title_postid_dict = dict()
+
+    try:
+        # 创建用户配置
+        if not exist_cfg():
             create_cfg()
-            get_cfg()
-    for mdfile in glob.glob(art_path + "*.md"):
-        post_art(mdfile, True)
-    for mdfile in glob.glob(unp_path + "*.md"):
-        post_art(mdfile, False)
+
+        # 获取文章参数
+        get_cfg()
+
+        # 配置用户参数
+        if len(sys.argv) > 1:
+            if sys.argv[1] == "download":
+                download_art()
+            elif sys.argv[1] == "config":
+                create_cfg()
+                get_cfg()
+
+        # 发布文章
+        for mdfile in glob.glob(art_path + "*.md"):
+            title, postid, publish = post_art(mdfile, True)
+            title_postid_dict[title] = postid
+
+        # 提交文章不发布
+        for mdfile in glob.glob(unp_path + "*.md"):
+            title, postid, publish = post_art(mdfile, False)
+    except KeyboardInterrupt:
+        with open('title_postid.json', 'w', encoding='utf8') as fw:
+            json.dump(title_postid_dict, fw)
+
+    with open('title_postid.json', 'w', encoding='utf8') as fw:
+        json.dump(title_postid_dict, fw)
