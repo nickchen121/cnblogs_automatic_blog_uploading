@@ -10,6 +10,8 @@ import sys
 import json
 import time
 import datetime
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # 发布文章路径(article path)
 art_path = "./articles/"
