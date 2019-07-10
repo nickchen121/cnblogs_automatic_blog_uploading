@@ -2,7 +2,7 @@
 # coding=utf-8
 
 # 使用python xmlrpc 发送内容到博客园
-# http://rpc.cnblogs.com/metaweblog/WeyneChen 从链接可以看到支持的metaweblog API
+# http://rpc.cnblogs.com/metaweblog/nickchen121 从链接可以看到支持的metaweblog API
 import xmlrpc.client as xmlrpclib
 import glob
 import os
